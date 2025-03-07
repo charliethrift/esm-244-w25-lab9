@@ -1,5 +1,15 @@
 ---
-title: "Template"
+title: "ESM week 9 lab"
+author:
+  - charlie
+format: 
+  html:
+    code-fold: show
+    toc: true
+theme: cerulean
+execute:
+  message: false
+  warning: false
 ---
 
 ```{r setup}
@@ -27,6 +37,7 @@ Example: Just want to get text from a single page (e.g. Page 34)?
 
 ```{r}
 hobbit_p34 <- hobbit_text[34]
+hobbit_p34
 ```
 
 ## The analysis:
@@ -52,7 +63,11 @@ Two new functions will help us get there:
 Hint: What patterns did you notice about of how each page handles line skips?
 
 ```{r}
-
+hobbit_lines <- data.frame(hobbit_text) %>% 
+  mutate(page=1:n()) %>% 
+  mutate(text_full = str_split(hobbit_text, pattern = "\\n")) %>% 
+  unnest(text_full) %>% 
+  mutate(text_full = str_trim(text_full))
 ```
 
 ## Do some tidying
@@ -64,7 +79,7 @@ We will use `str_detect()` to look for any cells in "text_full" column that cont
 ```{r}
 hobbit_chapts <- hobbit_lines |> 
   slice(-(1:137)) |> 
-  mutate(chapter = XXX) |> 
+  mutate(chapter = ifelse(str_detect(text_full,"Chapter"),text_full,NA)) |> 
   fill(chapter, .direction = 'down') |>
   separate(col = chapter, into = c("ch", "num"), sep = " ") |> 
   mutate(chapter = as.numeric(as.roman(num)))
@@ -78,13 +93,20 @@ Now that we have wrangled so that each line has all the text, we need to tokeniz
 hobbit_words <- hobbit_chapts |> 
   unnest_tokens(word, text_full) |> 
   select(-hobbit_text)
+
+hobbit_words_count <- hobbit_words %>% 
+  group_by(chapter) %>% 
+  summarise(count = n())
+
+plot(hobbit_words_count$chapter,hobbit_words_count$count)
 ```
 
 
 `dplyr::count()` is a cool function that quickly counts up the observation of a specific word or instance of data without using the usual `group_by()` to `summarize(n=n())` format. Use `count()` to quickly see how many times specific words occured in each chapter.
 
 ```{r}
-
+hobbit_wordcount <- hobbit_words %>% 
+  count(chapter,word)
 ```
 
 
@@ -96,7 +118,6 @@ Those very common (and often uninteresting) words are called "stop words." See `
 We will *remove* stop words using `tidyr::anti_join()`, which will *omit* any words in `stop_words` from `hobbit_tokens`.
 
 ```{r}
-
 wordcount_clean <- hobbit_wordcount |> 
   anti_join(stop_words, by = 'word')
 ```
@@ -106,7 +127,15 @@ wordcount_clean <- hobbit_wordcount |>
 Wrangle the top 5 word counts in each chapter then make a geom_col graph with a facet_wrap on each chapter.
 
 ```{r}
+top_5_words <- wordcount_clean %>% 
+  group_by(chapter) %>% 
+  arrange(-n) %>% 
+  slice(1:5) %>% 
+  ungroup()
 
+ggplot(data = top_5_words, aes(x = n, y = word)) +
+  geom_col(fill = "blue") +
+  facet_wrap(~chapter, scales = "free")
 ```
 
 ## Let's make a word cloud for Chapter 1
@@ -116,7 +145,10 @@ Wordclouds are fun visualizations to see the composition of words in a document.
 Use your own data wrangling skills to create a data frame of only the 100 words in Chapter 1 with the stop words removed. Call the new dataframe `ch1_top100`.
 
 ```{r}
-
+ch1_top100 <- wordcount_clean %>% 
+  filter(chapter == 1) %>% 
+  arrange(-n) %>% 
+  slice(1:100)
 ```
 
 
